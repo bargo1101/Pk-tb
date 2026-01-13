@@ -2,40 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>GBC-Style Monster Tribute (Pokémon Blue inspired) - Playable on Android</title>
+  <title>GBC-Style Tribute — Pat's Adventure (Hakim Jefrees)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
-  <meta name="mobile-web-app-capable" content="yes">
   <style>
-    /* GBC-ish background + fit/scale for mobile (integer-friendly scaling) */
-    html,body { height:100%; margin:0; background:#1b1b2f; font-family: monospace; -webkit-tap-highlight-color: transparent; }
-    #game-wrapper { width: 160px; height: 144px; margin: 18px auto; image-rendering: pixelated; }
+    html,body { height:100%; margin:0; background:#12121a; font-family: monospace; -webkit-tap-highlight-color: transparent; }
+    #game-wrapper { width: 320px; height: 288px; margin: 10px auto; image-rendering: pixelated; transform-origin:center top; }
     canvas { image-rendering: pixelated !important; }
     /* On-screen controls */
     .dpad, .btnA, .btnB {
-      position: fixed;
-      opacity: 0.85;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
+      position: fixed; opacity: 0.88; touch-action: none; user-select:none; -webkit-user-select:none;
     }
-    .dpad { left: 6vw; bottom: 12vw; width: 24vw; height: 24vw; }
-    .btnA { right: 6vw; bottom: 12vw; width: 18vw; height: 18vw; border-radius: 50%; background: #2f7bd9; }
-    .btnB { right: 22vw; bottom: 20vw; width: 12vw; height: 12vw; border-radius: 50%; background: #d14a4a; }
-    .dpad .dir { position:absolute; background:#999; border-radius:10%; opacity:0.7; }
-    .dpad .up { left:33%; top:0; width:34%; height:30%; }
-    .dpad .down { left:33%; bottom:0; width:34%; height:30%; }
-    .dpad .left { left:0; top:33%; width:30%; height:34%; }
-    .dpad .right { right:0; top:33%; width:30%; height:34%; }
-    /* UI overlay */
-    #hint { color:#dfe6e9; text-align:center; margin-top:6px; font-size:12px; }
-    .ui-panel { position: absolute; left:0; top:0; pointer-events:none; color:#fff; }
-    .small { font-size:10px; }
+    .dpad { left: 4vw; bottom: 12vw; width: 20vw; height: 20vw; }
+    .btnA { right: 6vw; bottom: 12vw; width: 16vw; height: 16vw; border-radius:50%; background:#2f7bd9; }
+    .btnB { right: 22vw; bottom: 20vw; width: 10vw; height: 10vw; border-radius:50%; background:#d14a4a; }
+    .dpad .dir { position:absolute; background:#999; border-radius:10%; opacity:0.75; }
+    .dpad .up { left:34%; top:0; width:32%; height:30%; } .dpad .down { left:34%; bottom:0; width:32%; height:30%; }
+    .dpad .left { left:0; top:34%; width:30%; height:32%; } .dpad .right { right:0; top:34%; width:30%; height:32%; }
+    #hint { color:#dfe6e9; text-align:center; margin-top:4px; font-size:12px; }
+    .small { font-size:11px; color:#cfe8ff; text-align:center; margin-bottom:2px; }
   </style>
 </head>
 <body>
   <div id="game-wrapper"></div>
-  <div id="hint">Use the D-Pad (or arrows) and A (right blue) to interact — designed for Android browsers</div>
+  <div class="small">Player: Pat  —  Tribute (fan-made, original assets)</div>
+  <div id="hint">D-Pad or arrows — [A] Interact / [B] Menu — Tap A on creatures to catch</div>
 
   <!-- On-screen D-Pad -->
   <div class="dpad" id="dpad" aria-hidden="true">
@@ -49,436 +40,627 @@
 
 <script>
 /*
-  GBC-Style "tribute" engine. This is an original, small demo inspired by
-  the tile/grid movement and simple catch/battle ideas from handheld monster RPGs.
-  IMPORTANT LEGAL NOTE (see below): no official Pokémon assets, names, or code are used.
+  Extended tribute demo:
+  - Closer visual homage with original pixel sprites (not using any copyrighted assets)
+  - World map with buildings to enter/exit
+  - NPCs with modern dialogue; some give Element Stones
+  - Creatures act on map; capture mechanic remains; creatures level up (no evolution)
+  - Special creature "Hakim Jefrees" (Eevee-like inspired) can change element via Element Stones
+  - Player name is Pat
+  - Single-file, runnable in Android browser. Can be wrapped in WebView/Capacitor.
 */
 
-/* --- Config --- */
-const TILE = 16;              // small "GBC pixel" tile
-const SCREEN_W = 160;         // original Game Boy width
-const SCREEN_H = 144;         // original Game Boy height
-const SCALE_TO = 3;           // initial scale; browser will scale further to fit
+/* --- Basic config --- */
+const TILE = 16;
+const SCREEN_W = 160 * 2; // scaled up internally for clearer pixels
+const SCREEN_H = 144 * 2;
+const config = { type: Phaser.CANVAS, parent: 'game-wrapper', width: SCREEN_W, height: SCREEN_H, backgroundColor: 0x88c0ff, pixelArt: true, physics: { default: 'arcade' }, scene: { preload, create, update } };
+const game = new Phaser.Game(config);
 
-const config = {
-  type: Phaser.CANVAS,
-  parent: 'game-wrapper',
-  width: SCREEN_W,
-  height: SCREEN_H,
-  backgroundColor: 0x7aa2ff,
-  pixelArt: true,
-  physics: { default: 'arcade' },
-  scene: { preload, create, update }
-};
-let game = new Phaser.Game(config);
-
-/* --- Map (simple) --- */
-const rawMap = [
-  'GGGGGGGGGGGGGGGGGG',
-  'G................G',
-  'G....WWW...T.....G',
-  'G....W.W...T.....G',
-  'G....WWW...T.....G',
-  'G................G',
-  'G..S.............G',
-  'G................G',
-  'G......C.......C.G',
-  'G................G',
-  'G................G',
-  'GGGGGGGGGGGGGGGGGG'
-];
-
-const pal = {
-  G: 0x3aa76a, // grass
-  W: 0x2f86c3, // water
-  T: 0x7ba05d, // tree/forest
-  S: 0xd8c76b, // sign / special
-  C: 0xffcc66, // creature spawn tile
-  '.': 0x93a2a8  // path / floor
+/* --- Map definitions --- 
+   Overworld map legend:
+   . floor (walkable), g grass (walkable),
+   W water (blocked), T tree (blocked),
+   B building wall (blocked), D door tile (enterable),
+   N NPC marker, C creature spawn, S stone (item)
+*/
+const maps = {
+  overworld: [
+    'BBBBBBBBBBBBBBBBBBBB',
+    'B..................B',
+    'B..C....g...S..N...B',
+    'B..g..WWW..g...g...B',
+    'B..g..W.W..g..C....B',
+    'B..g..WWW..g.......B',
+    'B.......g....g..D..B',
+    'B..C....g....g.....B',
+    'B.......g....g..C..B',
+    'B..S........g......B',
+    'B......B...BBBB....B',
+    'BBBBBBBBBBBBBBBBBBBB'
+  ],
+  house_small: [
+    'BBBBBBBBBBBB',
+    'B..........B',
+    'B..S..N....B',
+    'B..........B',
+    'B....D.....B',
+    'BBBBBBBBBBBB'
+  ]
 };
 
-/* --- Game state --- */
-let player, cursors;
-let moveQueue = null; // queued grid movement when stepping
-let creatures;        // array of creatures on map
-let uiText;
+const palette = {
+  B: 0x304352, // building/wall
+  '.': 0xcff0d6, // floor
+  g: 0x77bb6d, // grass
+  W: 0x3f8fe2, // water
+  T: 0x2c5b2e, // tree
+  D: 0xffd27f, // door tile (enter)
+  N: 0xcfe3ff, // npc floor marker
+  C: 0xefd275, // creature spawn marker
+  S: 0xffb7c5  // stone item marker
+};
+
+/* --- State --- */
+let currentMapKey = 'overworld';
+let currentMapData = maps.overworld;
+let player, cursors, gameScene;
+let creatures = [];     // active creatures (on current map)
+let npcs = [];
+let items = [];
+let playerPosBeforeEnter = null;
 let inputLocked = false;
 
-/* Simple "pokedex" saved to localStorage under key 'tribute_collection' */
-function loadCollection() {
-  try { return JSON.parse(localStorage.getItem('tribute_collection') || '[]'); }
-  catch(e){ return []; }
-}
-function saveCollection(list) {
-  try { localStorage.setItem('tribute_collection', JSON.stringify(list)); } catch(e){}
-}
+/* Persistence & collection */
+const STORAGE_KEY_COLLECTION = 'tribute_collection_v1';
+const STORAGE_KEY_ITEMS = 'tribute_items_v1';
+function loadCollection() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY_COLLECTION) || '[]'); } catch(e){return [];} }
+function saveCollection(list) { try{ localStorage.setItem(STORAGE_KEY_COLLECTION, JSON.stringify(list)); }catch(e){} }
+function loadItems(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY_ITEMS) || '{"stones":[]}'); } catch(e){ return {stones:[]}; } }
+function saveItems(obj){ try { localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(obj)); } catch(e){} }
 
-/* Generate small pixel-art textures for player/monsters at runtime */
-function makePixelTexture(scene, key, pixels, scale=1) {
-  const size = pixels.length;
-  const canvas = scene.textures.createCanvas(key, size*scale, size*scale);
-  const ctx = canvas.getContext();
-  for (let y=0;y<size;y++){
-    for (let x=0;x<size;x++){
+let inventory = loadItems(); // { stones: ['fire','water'] }
+
+/* --- Simple pixel sprite generator (original work) --- */
+function makePixelTexture(scene, key, pixels, scale=2) {
+  const sizeY = pixels.length, sizeX = pixels[0].length;
+  const tex = scene.textures.createCanvas(key, sizeX*scale, sizeY*scale);
+  const ctx = tex.getContext();
+  for (let y=0;y<sizeY;y++){
+    for (let x=0;x<sizeX;x++){
       const c = pixels[y][x];
       if (!c) continue;
       ctx.fillStyle = c;
       ctx.fillRect(x*scale, y*scale, scale, scale);
     }
   }
-  canvas.refresh();
+  tex.refresh();
 }
 
-/* --- Phaser lifecycle --- */
-function preload() {
-  // nothing external required; we create textures at runtime
-}
-
-function create() {
-  const scene = this;
-  // create textures (tiny 8x8 sprites)
-  // player (blue jacket)
-  makePixelTexture(this, 'player', [
-    [null,'#0b2b4b','#0b2b4b','#0b2b4b','#0b2b4b','#0b2b4b',null,null],
-    ['#0b2b4b','#7f9fbf','#7f9fbf','#7f9fbf','#7f9fbf','#7f9fbf','#0b2b4b',null],
-    [null,null,'#7f9fbf','#7f9fbf','#7f9fbf','#7f9fbf',null,null],
-    [null,null,null,'#f1c27d','#f1c27d',null,null,null],
-    [null,null,'#d14a4a',null,null,'#d14a4a',null,null],
-    [null,'#d14a4a',null,null,null,null,'#d14a4a',null],
-    [null,null,'#a23f3f','#a23f3f','#a23f3f','#a23f3f',null,null],
-    [null,null,null,null,null,null,null,null]
+/* Create sprites used by creatures/NPCs/player */
+function createSprites(scene) {
+  // player "Pat" sprite (original)
+  makePixelTexture(scene, 'pat', [
+    [null,'#0f2b4c','#0f2b4c','#0f2b4c','#0f2b4c',null],
+    ['#0f2b4c','#77a6d9','#77a6d9','#77a6d9','#77a6d9','#0f2b4c'],
+    [null,null,'#77a6d9','#77a6d9','#77a6d9',null],
+    [null,null,null,'#f1c27d','#f1c27d',null],
+    [null,null,'#e04a4a',null,null,'#e04a4a'],
+    [null,'#e04a4a',null,null,null,'#e04a4a'],
   ], 2);
 
-  // generic creature sprite variations
-  makePixelTexture(this, 'creature_green', [
-    [null,null,'#7bd67b','#7bd67b','#7bd67b',null,null,null],
-    [null,'#7bd67b','#9ff39f','#9ff39f','#9ff39f','#7bd67b',null,null],
-    [null,'#7bd67b','#9ff39f','#2f7b2f','#9ff39f','#7bd67b',null,null],
-    [null,'#7bd67b','#9ff39f','#9ff39f','#9ff39f','#7bd67b',null,null],
-    [null,null,'#7bd67b','#7bd67b','#7bd67b',null,null,null],
-    [null,null,null,null,null,null,null,null],
-    [null,null,null,null,null,null,null,null],
-    [null,null,null,null,null,null,null,null]
-  ],2);
+  // Generic creature base (neutral)
+  makePixelTexture(scene, 'crea_base', [
+    [null,'#a7d67b','#a7d67b','#a7d67b',null],
+    ['#a7d67b','#ffffff','#ffffff','#ffffff','#a7d67b'],
+    [null,'#ffffff','#7a9b4b','#ffffff',null],
+    [null,null,'#7a9b4b',null,null]
+  ], 3);
 
-  makePixelTexture(this, 'creature_red', [
-    [null,null,'#ff9b9b','#ff9b9b','#ff9b9b',null,null,null],
-    [null,'#ff9b9b','#ffdad6','#ffdad6','#ffdad6','#ff9b9b',null,null],
-    [null,'#ff9b9b','#ffdad6','#6b1616','#ffdad6','#ff9b9b',null,null],
-    [null,'#ff9b9b','#ffdad6','#ffdad6','#ffdad6','#ff9b9b',null,null],
-    [null,null,'#ff9b9b','#ff9b9b','#ff9b9b',null,null,null],
-    [null,null,null,null,null,null,null,null],
-    [null,null,null,null,null,null,null,null],
-    [null,null,null,null,null,null,null,null]
-  ],2);
+  // Hakim Jefrees base (Eevee-like inspired but original)
+  makePixelTexture(scene, 'hakim_base', [
+    [null,'#f0d2a4','#f0d2a4','#f0d2a4',null],
+    ['#f0d2a4','#8a5d3a','#8a5d3a','#8a5d3a','#f0d2a4'],
+    [null,'#8a5d3a','#fff0d6','#8a5d3a',null],
+    [null,null,'#fff0d6',null,null]
+  ],3);
 
-  // draw map using graphics on a render texture for crisp pixels
-  const mapWidth = rawMap[0].length;
-  const mapHeight = rawMap.length;
-  const rt = this.add.renderTexture(0,0, mapWidth*TILE, mapHeight*TILE).setOrigin(0);
-  for (let y=0;y<mapHeight;y++){
-    for (let x=0;x<mapWidth;x++){
-      const ch = rawMap[y][x];
-      const color = pal[ch] || pal['.'];
-      const g = this.make.graphics({x:0,y:0,add:false});
-      g.fillStyle(color,1);
-      g.fillRect(0,0,TILE,TILE);
-      rt.draw(g, x*TILE, y*TILE);
-      g.destroy();
-      // optional tile border for readability
-      const border = this.make.graphics({x:0,y:0,add:false});
-      border.lineStyle(1, 0x2b2b2b, 0.2);
-      border.strokeRect(0,0,TILE,TILE);
-      rt.draw(border, x*TILE, y*TILE);
-      border.destroy();
-    }
-  }
+  // Elemental variants for Hakim (fire / water / volt)
+  makePixelTexture(scene, 'hakim_fire', [
+    [null,'#ffd29f','#ffd29f','#ffd29f',null],
+    ['#ffd29f','#bf5a2a','#bf5a2a','#bf5a2a','#ffd29f'],
+    [null,'#bf5a2a','#fff2d9','#bf5a2a',null],
+    [null,null,'#fff2d9',null,null]
+  ],3);
+  makePixelTexture(scene, 'hakim_water', [
+    [null,'#cfe6ff','#cfe6ff','#cfe6ff',null],
+    ['#cfe6ff','#2b6fbf','#2b6fbf','#2b6fbf','#cfe6ff'],
+    [null,'#2b6fbf','#eaf7ff','#2b6fbf',null],
+    [null,null,'#eaf7ff',null,null]
+  ],3);
+  makePixelTexture(scene, 'hakim_volt', [
+    [null,'#fff3a0','#fff3a0','#fff3a0',null],
+    ['#fff3a0','#bda81c','#bda81c','#bda81c','#fff3a0'],
+    [null,'#bda81c','#fff8c9','#bda81c',null],
+    [null,null,'#fff8c9',null,null]
+  ],3);
 
-  // world bounds based on rendered map
-  this.physics.world.setBounds(0,0, mapWidth*TILE, mapHeight*TILE);
+  // Small NPC head
+  makePixelTexture(scene, 'npc', [
+    [null,'#ffd7b0','#ffd7b0',null],
+    ['#ffd7b0','#6c4f3a','#6c4f3a','#ffd7b0'],
+    [null,null,'#ffd7b0',null]
+  ],3);
+}
 
-  // player: start near top-left open area (tile coords)
-  const startX = 2 * TILE + TILE/2;
-  const startY = 2 * TILE + TILE/2;
-  player = this.physics.add.sprite(startX, startY, 'player').setOrigin(0.5).setScale(1).setDepth(5);
-  player.gridX = Math.round(startX / TILE);
-  player.gridY = Math.round(startY / TILE);
-  player.setCollideWorldBounds(true);
-  player.body.setSize(12,12);
-  player.moving = false;
-
-  // create creatures at 'C' tiles
+/* --- Map rendering & world handling --- */
+let renderTexture;
+function drawMap(scene, mapKey) {
+  currentMapKey = mapKey;
+  currentMapData = maps[mapKey];
+  // clear existing creatures/npcs/items
+  creatures.forEach(c=>c.sprite && c.sprite.destroy());
   creatures = [];
-  for (let y=0;y<mapHeight;y++){
-    for (let x=0;x<mapWidth;x++){
-      if (rawMap[y][x] === 'C') {
-        const choice = Math.random() < 0.5 ? 'creature_green' : 'creature_red';
-        const spr = this.add.sprite(x*TILE + TILE/2, y*TILE + TILE/2, choice).setScale(1).setDepth(4);
-        spr.gridX = x; spr.gridY = y;
-        spr.species = (choice === 'creature_green') ? 'Blupluff' : 'Reddim'; // original names
-        spr.level = Phaser.Math.Between(2,8);
-        creatures.push(spr);
+  npcs.forEach(n=>n.sprite && n.sprite.destroy());
+  npcs = [];
+  items.forEach(it=>it.sprite && it.sprite.destroy());
+  items = [];
+
+  // create render texture sized to map
+  const mapW = currentMapData[0].length;
+  const mapH = currentMapData.length;
+  const pxW = mapW * TILE;
+  const pxH = mapH * TILE;
+
+  if (renderTexture) { renderTexture.destroy(); renderTexture = null; }
+  renderTexture = scene.add.renderTexture(0,0, pxW, pxH).setOrigin(0).setDepth(0);
+  // draw tiles
+  for (let y=0;y<mapH;y++){
+    for (let x=0;x<mapW;x++){
+      const ch = currentMapData[y][x];
+      const col = palette[ch] || palette['.'];
+      const g = scene.make.graphics({x:0,y:0,add:false});
+      g.fillStyle(col,1);
+      g.fillRect(0,0,TILE,TILE);
+      renderTexture.draw(g, x*TILE, y*TILE);
+      g.destroy();
+      // optional border
+      const b = scene.make.graphics({x:0,y:0,add:false});
+      b.lineStyle(1, 0x000000, 0.08);
+      b.strokeRect(0,0,TILE,TILE);
+      renderTexture.draw(b, x*TILE, y*TILE);
+      b.destroy();
+
+      // spawn dynamic entities when special markers encountered
+      if (ch === 'C') {
+        // spawn a roaming creature (random type)
+        const types = ['generic','hakim_hunt'];
+        const type = Phaser.Utils.Array.GetRandom(types);
+        spawnCreature(scene, x, y, type);
+      } else if (ch === 'N') {
+        spawnNPC(scene, x, y);
+      } else if (ch === 'S') {
+        spawnItem(scene, x, y, 'stone_spot');
       }
     }
   }
 
-  // camera to fixed game viewport (no move)
-  this.cameras.main.setBounds(0,0,mapWidth*TILE,mapHeight*TILE);
+  // update world bounds and camera
+  scene.physics.world.setBounds(0,0,pxW,pxH);
+  scene.cameras.main.setBounds(0,0,pxW,pxH);
+}
+
+/* --- Spawn functions --- */
+function spawnCreature(scene, gx, gy, type) {
+  let key = 'crea_base';
+  let species = 'Dibbly';
+  let level = Phaser.Math.Between(2,6);
+  if (type === 'hakim_hunt') { key = 'hakim_base'; species = 'Hakim Jefrees'; level = Phaser.Math.Between(2,5); }
+  const x = gx*TILE + TILE/2;
+  const y = gy*TILE + TILE/2;
+  const spr = scene.add.sprite(x,y,key).setScale(1).setDepth(3);
+  spr.gridX = gx; spr.gridY = gy; spr.type = type; spr.species = species; spr.level = level;
+  // add small idle bob animation using tween
+  scene.tweens.add({ targets: spr, y: spr.y - 3, duration: 900 + Math.random()*800, yoyo:true, repeat:-1, ease:'Sine.easeInOut' });
+  // random wandering
+  spr.moveTimer = scene.time.addEvent({ delay: 2000 + Math.random()*4000, loop: true, callback: ()=>{
+    if (inputLocked) return;
+    if (Math.random() < 0.5) return;
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    const d = Phaser.Utils.Array.GetRandom(dirs);
+    const nx = spr.gridX + d[0], ny = spr.gridY + d[1];
+    if (isWalkableTile(nx,ny)) {
+      spr.gridX = nx; spr.gridY = ny;
+      scene.tweens.add({ targets: spr, x: nx*TILE + TILE/2, y: ny*TILE + TILE/2, duration: 300, ease:'Power2' });
+    }
+  }} );
+  creatures.push({ sprite: spr, species, level, type, key });
+}
+
+function spawnNPC(scene, gx, gy) {
+  const x = gx*TILE + TILE/2; const y = gy*TILE + TILE/2;
+  const spr = scene.add.sprite(x,y,'npc').setScale(1.5).setDepth(4);
+  spr.gridX = gx; spr.gridY = gy;
+  // attach a dialog and maybe give a stone
+  const dialogs = [
+    ["Yo Pat! The Wi-Fi here is terrible, but the vibes are good."],
+    ["Have you tried the new ramen truck? 10/10 would recommend."],
+    ["I do data science. My hobby is training tiny beasts. Bring one around and I'll help it level up!"]
+  ];
+  // some NPCs will give a starter stone once
+  const giveStone = Math.random() < 0.4; // 40% chance to give a stone
+  const stoneType = giveStone ? Phaser.Utils.Array.GetRandom(['fire','water','volt']) : null;
+  npcs.push({ sprite: spr, dialogs, giveStone, stoneType, given:false });
+}
+
+function spawnItem(scene, gx, gy, subtype) {
+  // stone spot - pick up a random stone with some chance
+  const x = gx*TILE + TILE/2; const y = gy*TILE + TILE/2;
+  const g = scene.add.circle(x, y, TILE/3, 0xffb7c5).setDepth(2);
+  items.push({ sprite: g, gx, gy, subtype });
+}
+
+/* --- Utility: check walkable tiles --- */
+function isWalkableTile(gx, gy) {
+  if (!currentMapData) return false;
+  if (gy < 0 || gy >= currentMapData.length || gx < 0 || gx >= currentMapData[0].length) return false;
+  const ch = currentMapData[gy][gx];
+  // D (door) is walkable and triggers enter, '.' and 'g' and 'C' and 'S' and 'N' are walkable; walls B, W, T are not
+  return ['.','g','D','C','S','N'].includes(ch);
+}
+
+/* Convert tile center */
+function tileCenter(gx,gy) { return { x: gx*TILE + TILE/2, y: gy*TILE + TILE/2 }; }
+
+/* --- Phaser lifecycle --- */
+function preload() { /* none external */ }
+
+function create() {
+  gameScene = this;
+  createSprites(this);
+  drawMap(this, 'overworld');
+
+  // player start
+  const start = findFirstWalkableTile(currentMapData);
+  const px = start.x*TILE + TILE/2, py = start.y*TILE + TILE/2;
+  player = this.physics.add.sprite(px, py, 'pat').setDepth(5).setScale(1.2);
+  player.gridX = start.x; player.gridY = start.y;
+  player.moving = false;
   this.cameras.main.centerOn(player.x, player.y);
 
+  // input
   cursors = this.input.keyboard.createCursorKeys();
-  // also support WASD
   this.input.keyboard.addKeys('W,A,S,D');
-
-  // UI text overlay (small)
-  uiText = this.add.text(4, SCREEN_H - 18, '', { font: '9px monospace', fill:'#062a3a', backgroundColor:'#d6efff' }).setDepth(10).setScrollFactor(0);
-
-  // input handlers: A button
-  this.input.keyboard.on('keydown-SPACE', () => { interact(scene); });
-  this.input.keyboard.on('keydown-Z', () => { interact(scene); }); // common A key
-  // menu key (B)
-  this.input.keyboard.on('keydown-X', () => { openCollection(scene); });
-
-  // on-screen D-pad and buttons (connect to DOM)
+  this.input.keyboard.on('keydown-Z', ()=>interact());
+  this.input.keyboard.on('keydown-SPACE', ()=>interact());
+  this.input.keyboard.on('keydown-X', ()=>openMenu());
+  // on-screen controls
   attachTouchControls(this);
 
-  // show collection count
-  updateUI();
+  // UI small text
+  this.info = this.add.text(6, SCREEN_H - 28, '', { font: '10px monospace', fill: '#061a2a', backgroundColor:'#cff0ff' }).setDepth(20).setScrollFactor(0);
+  updateInfo();
 }
 
-/* --- Helpers & Mechanics --- */
-
-/* check collision/walkable - simple: only 'G','.' and 'C','S' walkable; W/T/G border denote obstacles */
-function isWalkable(x,y) {
-  if (y < 0 || y >= rawMap.length || x < 0 || x >= rawMap[0].length) return false;
-  const ch = rawMap[y][x];
-  return ch !== 'W' && ch !== 'T' && ch !== 'G'; // Note: edges 'G' used as border in our map, treat as wall
+/* find any walkable tile to place player */
+function findFirstWalkableTile(mapData) {
+  for (let y=0;y<mapData.length;y++) {
+    for (let x=0;x<mapData[0].length;x++) {
+      if (isWalkableChar(mapData[y][x])) return {x,y};
+    }
+  }
+  return {x:1,y:1};
 }
+function isWalkableChar(ch) { return ['.','g','D','C','S','N'].includes(ch); }
 
-/* Convert grid coords to pixel center */
-function tileCenter(x,y) {
-  return { x: x*TILE + TILE/2, y: y*TILE + TILE/2 };
-}
-
-/* Attempt to move one tile in given direction (grid) */
-function tryWalk(dx,dy,scene) {
-  if (player.moving || inputLocked) return;
-  const nx = player.gridX + dx;
-  const ny = player.gridY + dy;
-  if (!isWalkable(nx,ny)) {
-    // bump text
-    flashText(scene, "Blocked!");
+/* Movement: grid-based stepping */
+function stepTo(dx,dy) {
+  if (inputLocked || player.moving) return;
+  const nx = player.gridX + dx, ny = player.gridY + dy;
+  if (!isWalkableTile(nx,ny)) {
+    flashTemporary("Blocked!");
     return;
   }
   player.moving = true;
   player.gridX = nx; player.gridY = ny;
   const dest = tileCenter(nx,ny);
-  scene.tweens.add({
-    targets: player,
-    x: dest.x,
-    y: dest.y,
-    duration: 160,
-    ease: 'Power2',
-    onComplete: ()=> { player.moving = false; scene.cameras.main.centerOn(player.x, player.y); }
-  });
+  gameScene.tweens.add({ targets: player, x: dest.x, y: dest.y, duration: 150, ease: 'Power2', onComplete: ()=>{player.moving=false; gameScene.cameras.main.centerOn(player.x, player.y); onEnterTile(nx,ny);} });
 }
 
-/* Check for creature adjacent and start interaction */
-function interact(scene) {
+/* Called after arriving on tile */
+function onEnterTile(gx,gy) {
+  // check for entering door tile 'D'
+  const ch = currentMapData[gy][gx];
+  if (ch === 'D') {
+    // If overworld -> find house_small and enter it, else exit back
+    if (currentMapKey === 'overworld') {
+      playerPosBeforeEnter = { mapKey: currentMapKey, x: gx, y: gy };
+      drawMap(gameScene, 'house_small');
+      // place player at first floor tile 'D' location inside (find 'D' in interior to exit)
+      const insideTile = findFirstWalkableTile(currentMapData);
+      player.gridX = insideTile.x; player.gridY = insideTile.y;
+      const dest = tileCenter(player.gridX, player.gridY);
+      player.x = dest.x; player.y = dest.y;
+      gameScene.cameras.main.centerOn(player.x, player.y);
+      updateInfo();
+    } else {
+      // return to previous map and place player just outside door
+      const prev = playerPosBeforeEnter || { mapKey:'overworld', x:3, y:6 };
+      drawMap(gameScene, prev.mapKey);
+      // place player near door (we'll put them one tile left)
+      const outX = Math.max(1, prev.x);
+      player.gridX = outX; player.gridY = prev.y;
+      const dest = tileCenter(player.gridX, player.gridY);
+      player.x = dest.x; player.y = dest.y;
+      gameScene.cameras.main.centerOn(player.x, player.y);
+      updateInfo();
+    }
+  }
+
+  // check for items on tile (items array)
+  const foundItemIndex = items.findIndex(it => it.gx === gx && it.gy === gy);
+  if (foundItemIndex >= 0) {
+    const it = items[foundItemIndex];
+    // pick up stone randomly
+    if (it.subtype === 'stone_spot') {
+      const stone = Phaser.Utils.Array.GetRandom(['fire','water','volt']);
+      inventory.stones.push(stone);
+      saveItems(inventory);
+      it.sprite.destroy();
+      items.splice(foundItemIndex,1);
+      flashTemporary(`Found a ${stone} stone!`);
+      updateInfo();
+    }
+  }
+}
+
+/* Interact action (A) */
+function interact() {
   if (inputLocked) return;
-  // find creature adjacent (manhattan dist = 1) or same tile
+  // check for creature adjacent (manhattan <=1)
   for (let i=0;i<creatures.length;i++){
     const c = creatures[i];
-    const d = Math.abs(c.gridX - player.gridX) + Math.abs(c.gridY - player.gridY);
+    const d = Math.abs(c.sprite.gridX - player.gridX) + Math.abs(c.sprite.gridY - player.gridY);
     if (d <= 1) {
-      startBattle(scene, c, i);
+      // start encounter (capture attempt)
+      startEncounter(c, i);
       return;
     }
   }
-  // check sign tiles (S)
-  const ch = rawMap[player.gridY][player.gridX];
-  if (ch === 'S') {
-    flashText(scene, "Sign: Welcome to Blue Coast!");
-  } else {
-    flashText(scene, "Nothing here.");
+  // check for NPC adjacent
+  for (let i=0;i<npcs.length;i++){
+    const n = npcs[i];
+    const d = Math.abs(n.sprite.gridX - player.gridX) + Math.abs(n.sprite.gridY - player.gridY);
+    if (d <= 1) {
+      talkToNPC(n);
+      return;
+    }
   }
+  // nothing
+  flashTemporary("Nothing to interact with.");
 }
 
-/* Very small turn-based encounter: user can throw a "ball" to try capture */
-function startBattle(scene, creatureSprite, creatureIndex) {
+/* Start encounter - simple capture flow (similar to earlier) */
+function startEncounter(creatureObj, index) {
   inputLocked = true;
-  // overlay
-  const overlay = scene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.65).setOrigin(0).setDepth(20);
-  const panel = scene.add.rectangle(8, SCREEN_H-56, SCREEN_W-16, 48, 0xfafafa, 1).setOrigin(0,0).setDepth(21);
-  const nameText = scene.add.text(12, SCREEN_H-52, `${creatureSprite.species}  Lv ${creatureSprite.level}`, {font:'10px monospace', fill:'#000'}).setDepth(22);
-  const infoText = scene.add.text(12, SCREEN_H-36, "What will you do?", {font:'9px monospace', fill:'#000'}).setDepth(22);
+  const spr = creatureObj.sprite;
+  const type = creatureObj.type;
+  // create overlay
+  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.6).setOrigin(0).setDepth(50);
+  const panel = gameScene.add.rectangle(8, SCREEN_H-60, SCREEN_W-16, 56, 0xf8f8f8, 1).setOrigin(0).setDepth(51);
+  const title = gameScene.add.text(12, SCREEN_H-56, `${spr.species} Lv ${spr.level}`, { font:'10px monospace', fill:'#000' }).setDepth(52);
+  const info = gameScene.add.text(12, SCREEN_H-40, "Throw Ball [A]  Run [B]", { font:'9px monospace', fill:'#000' }).setDepth(52);
 
-  // options: Ball (A), Run (B)
-  const btnBall = scene.add.text(SCREEN_W - 70, SCREEN_H-46, '[A] Ball', {font:'10px monospace', fill:'#0a5'}).setDepth(22);
-  const btnRun  = scene.add.text(SCREEN_W - 70, SCREEN_H-30, '[B] Run', {font:'10px monospace', fill:'#a33'}).setDepth(22);
-
-  // local handlers for keys and touch
   function cleanup() {
-    overlay.destroy(); panel.destroy(); nameText.destroy(); infoText.destroy(); btnBall.destroy(); btnRun.destroy();
+    overlay.destroy(); panel.destroy(); title.destroy(); info.destroy();
     inputLocked = false;
   }
-
-  // simple capture chance formula influenced by level
   function attemptCapture() {
-    const base = 0.5; // base 50%
-    const levelFactor = Math.max(0, (12 - creatureSprite.level) * 0.03); // higher chance on low level
-    const chance = Phaser.Math.Clamp(base + levelFactor - Math.random()*0.2, 0.05, 0.95);
-    infoText.setText("You throw a ball...");
-    scene.time.delayedCall(800, ()=>{
+    const base = spr.species === 'Hakim Jefrees' ? 0.45 : 0.5;
+    const levelFactor = Math.max(0, (8 - spr.level) * 0.04);
+    const chance = Phaser.Math.Clamp(base + levelFactor - Math.random()*0.15, 0.05, 0.95);
+    info.setText("You throw a ball...");
+    gameScene.time.delayedCall(700, ()=>{
       if (Math.random() < chance) {
-        // captured
-        infoText.setText(`${creatureSprite.species} was captured!`);
-        // add to collection
+        info.setText(`${spr.species} was captured!`);
         const col = loadCollection();
-        col.push({ species: creatureSprite.species, level: creatureSprite.level, id: Date.now() });
+        // creature stored: species, level, element (if Hakim), id, xp
+        const entry = { species: spr.species, level: spr.level, id: Date.now(), xp: 0 };
+        if (spr.species === 'Hakim Jefrees') entry.element = 'neutral'; // becomes elemental when stone applied
+        col.push(entry);
         saveCollection(col);
-        // remove from map
-        creatureSprite.destroy();
-        creatures.splice(creatureIndex,1);
-        scene.time.delayedCall(900, ()=>{
-          cleanup();
-          updateUI();
-        });
+        // remove from world
+        spr.moveTimer && spr.moveTimer.remove(false);
+        spr.destroy();
+        creatures.splice(index,1);
+        gameScene.time.delayedCall(900, ()=>{ cleanup(); updateInfo(); });
       } else {
-        infoText.setText("Oh no! It broke free!");
-        scene.time.delayedCall(700, ()=>{
-          cleanup();
-        });
+        info.setText("It broke free!");
+        gameScene.time.delayedCall(700, ()=> cleanup());
       }
     });
   }
 
-  // keyboard
-  function onKeyDown(e) {
-    if (!inputLocked) return;
-    if (e.key === 'z' || e.key === 'Z' || e.key === ' ' || e.code === 'Space') {
-      attemptCapture();
-    } else if (e.key === 'x' || e.key === 'X') {
-      infoText.setText("You ran away!");
-      scene.time.delayedCall(400, cleanup);
-    }
-  }
-  window.addEventListener('keydown', onKeyDown);
+  // keyboard handlers and on-screen buttons
+  function onKey(e){ if (!inputLocked) return; if (e.key==='z' || e.key==='Z' || e.key===' '){ attemptCapture(); } else if (e.key==='x' || e.key==='X'){ info.setText("You ran away!"); gameScene.time.delayedCall(300, cleanup); } }
+  window.addEventListener('keydown', onKey);
+  const onTouchA = ()=> attemptCapture();
+  const onTouchB = ()=> { info.setText("You ran away!"); gameScene.time.delayedCall(300, cleanup); };
+  document.getElementById('btnA').addEventListener('touchstart', onTouchA, { passive:true });
+  document.getElementById('btnB').addEventListener('touchstart', onTouchB, { passive:true });
 
-  // on-screen button touch
-  const onTouchA = () => attemptCapture();
-  const onTouchB = () => { infoText.setText("You ran away!"); scene.time.delayedCall(400, cleanup); };
-
-  document.getElementById('btnA').addEventListener('touchstart', onTouchA, { passive: true });
-  document.getElementById('btnB').addEventListener('touchstart', onTouchB, { passive: true });
-
-  // also add a click handler just in case
-  btnBall.setInteractive().on('pointerdown', attemptCapture);
-  btnRun.setInteractive().on('pointerdown', ()=>{ infoText.setText("You ran away!"); scene.time.delayedCall(400, cleanup); });
-
-  // cleanup wrapper to remove listeners
-  const originalCleanup = cleanup;
-  cleanup = function() {
-    window.removeEventListener('keydown', onKeyDown);
-    document.getElementById('btnA').removeEventListener('touchstart', onTouchA);
-    document.getElementById('btnB').removeEventListener('touchstart', onTouchB);
-    originalCleanup();
-  };
+  // cleanup wrapper
+  const origCleanup = cleanup;
+  cleanup = function(){ window.removeEventListener('keydown', onKey); document.getElementById('btnA').removeEventListener('touchstart', onTouchA); document.getElementById('btnB').removeEventListener('touchstart', onTouchB); origCleanup(); };
 }
 
-/* Show the collection/pokedex */
-function openCollection(scene) {
+/* Talk to NPC, modern dialogue, some give element stone once */
+function talkToNPC(npc) {
   inputLocked = true;
-  const overlay = scene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.7).setOrigin(0).setDepth(30);
-  const panel = scene.add.rectangle(8,8, SCREEN_W-16, SCREEN_H-16, 0xffffff, 1).setOrigin(0).setDepth(31);
-  const col = loadCollection();
-  const title = scene.add.text(12,12, `Collection (${col.length})`, {font:'10px monospace', fill:'#000'}).setDepth(32);
+  const dialogLines = Phaser.Utils.Array.Shuffle(npc.dialogs)[0];
+  let idx = 0;
+  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.55).setOrigin(0).setDepth(60);
+  const panel = gameScene.add.rectangle(8, SCREEN_H-70, SCREEN_W-16, 66, 0xfafafa, 1).setOrigin(0).setDepth(61);
+  const nameTxt = gameScene.add.text(12, SCREEN_H-66, `NPC`, {font:'10px monospace', fill:'#000'}).setDepth(62);
+  const body = gameScene.add.text(12, SCREEN_H-52, dialogLines[idx] || "Hey.", {font:'9px monospace', fill:'#000'}).setDepth(62);
+  const hint = gameScene.add.text(SCREEN_W-70, SCREEN_H-34, "[A] Next  [B] Close", {font:'9px monospace', fill:'#333'}).setDepth(62);
 
-  // list items (simple scroll if many)
-  for (let i=0;i<Math.min(10,col.length);i++){
-    const it = col[i];
-    scene.add.text(12, 26 + i*10, `#${i+1} ${it.species} Lv${it.level}`, {font:'9px monospace', fill:'#000'}).setDepth(32);
+  function advance() {
+    idx++;
+    if (idx < dialogLines.length) { body.setText(dialogLines[idx]); }
+    else finish();
   }
-  if (col.length === 0) scene.add.text(12,26, "None yet — go catch some!", {font:'9px monospace', fill:'#000'}).setDepth(32);
+  function finish() {
+    // maybe give stone
+    if (npc.giveStone && !npc.given) {
+      const stone = npc.stoneType;
+      inventory.stones.push(stone);
+      saveItems(inventory);
+      npc.given = true;
+      body.setText(`Oh hey, take this ${stone} stone. Use it on a Hakim Jefrees!`);
+      gameScene.time.delayedCall(800, ()=>{ close(); updateInfo(); });
+      return;
+    }
+    close();
+  }
+  function close() { overlay.destroy(); panel.destroy(); nameTxt.destroy(); body.destroy(); hint.destroy(); inputLocked=false; }
 
-  // close on any key or A/B
-  function close() { overlay.destroy(); panel.destroy(); title.destroy(); scene.children.list.slice().filter(c=>c.depth>=32).forEach(c=>{ if (c && c.scene) c.destroy();}); inputLocked = false; window.removeEventListener('keydown', onKey); }
-  function onKey(e){ if (e.key) close(); }
+  function onKey(e){ if (!inputLocked) return; if (e.key==='z' || e.key==='Z' || e.key===' '){ advance(); } else if (e.key==='x' || e.key==='X'){ close(); } }
+  window.addEventListener('keydown', onKey);
+  document.getElementById('btnA').addEventListener('touchstart', advance, { passive:true });
+  document.getElementById('btnB').addEventListener('touchstart', close, { passive:true });
+  // cleanup wrapper
+  const origClose = close;
+  close = function(){ window.removeEventListener('keydown', onKey); document.getElementById('btnA').removeEventListener('touchstart', advance); document.getElementById('btnB').removeEventListener('touchstart', close); origClose(); };
+}
+
+/* Display a small transient message */
+function flashTemporary(txt) {
+  if (!gameScene) return;
+  gameScene.info.setText(txt);
+  gameScene.time.delayedCall(1100, ()=>{ if (gameScene && gameScene.info) gameScene.info.setText(''); });
+}
+
+/* Update info bar */
+function updateInfo() {
+  const stones = inventory.stones.length;
+  const col = loadCollection().length;
+  if (gameScene && gameScene.info) gameScene.info.setText(`Pat  •  Collected: ${col}  •  Stones: ${stones}`);
+}
+
+/* Menu (B) - show collection and allow using stones on Hakim */
+function openMenu() {
+  inputLocked = true;
+  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.7).setOrigin(0).setDepth(80);
+  const panel = gameScene.add.rectangle(6,6, SCREEN_W-12, SCREEN_H-12, 0xfdfdfd, 1).setOrigin(0).setDepth(81);
+  const title = gameScene.add.text(12,10, "PAT'S MENU", {font:'11px monospace', fill:'#000'}).setDepth(82);
+  const colList = loadCollection();
+  // show first 8 creatures
+  for (let i=0;i<Math.min(8,colList.length);i++){
+    const it = colList[i];
+    const txt = gameScene.add.text(12, 30 + i*14, `${i+1}. ${it.species} Lv ${it.level} ${it.element ? '['+it.element+']' : ''}`, {font:'10px monospace', fill:'#000'}).setDepth(82);
+    txt.setInteractive();
+    // clicking on an entry when stones available allows using stone (if Hakim)
+    txt.on('pointerdown', ()=>{ attemptUseStoneOn(i, overlay, panel, title); });
+  }
+  if (colList.length === 0) gameScene.add.text(12, 30, "No creatures yet. Catch some!", {font:'10px monospace', fill:'#000'}).setDepth(82);
+
+  // Show stones in inventory and instructions
+  gameScene.add.text(12, SCREEN_H-56, `Stones: ${inventory.stones.join(', ') || 'None'}`, {font:'10px monospace', fill:'#000'}).setDepth(82);
+  const closeHint = gameScene.add.text(SCREEN_W-88, SCREEN_H-28, "[A] Close", {font:'10px monospace', fill:'#333'}).setDepth(82);
+
+  function close() { overlay.destroy(); panel.destroy(); title.destroy(); gameScene.children.list.slice().filter(c=>c.depth===82).forEach(c=>c.destroy()); inputLocked=false; updateInfo(); window.removeEventListener('keydown', onKey); }
+  function onKey(e){ if (e.key==='z' || e.key==='Z' || e.key===' ' || e.key==='x' || e.key==='X') close(); }
   window.addEventListener('keydown', onKey);
   document.getElementById('btnA').addEventListener('touchstart', close, { once:true });
   document.getElementById('btnB').addEventListener('touchstart', close, { once:true });
+
+  // attempt to use stone on creature index
+  function attemptUseStoneOn(index, overlayEl, panelEl, titleEl) {
+    const col = loadCollection();
+    if (index < 0 || index >= col.length) { flashTemporary("Invalid selection."); return; }
+    const chosen = col[index];
+    if (chosen.species !== 'Hakim Jefrees') { flashTemporary("Only Hakim Jefrees can receive Element Stones."); return; }
+    if (inventory.stones.length === 0) { flashTemporary("No stones available."); return; }
+    // Prompt to choose which stone to use
+    inputLocked = true;
+    const prompt = gameScene.add.rectangle(18, SCREEN_H/2 - 26, SCREEN_W-36, 52, 0xffffff, 1).setDepth(90);
+    const text = gameScene.add.text(22, SCREEN_H/2 - 18, `Use which stone on ${chosen.species}? (${inventory.stones.join(', ')})`, {font:'9px monospace', fill:'#000'}).setDepth(91);
+    // Simple: pick first stone in inventory
+    const stone = inventory.stones.shift();
+    saveItems(inventory);
+    // apply stone effect — set element field (does not evolve) and change future display
+    chosen.element = stone;
+    // persist collection
+    const colAll = loadCollection();
+    colAll[index] = chosen;
+    saveCollection(colAll);
+    text.setText(`${chosen.species} is infused with ${stone} energy!`);
+    gameScene.time.delayedCall(1000, ()=>{ prompt.destroy(); text.destroy(); updateInfo(); inputLocked=false; });
+  }
 }
 
-/* tiny floating text function */
-function flashText(scene, text) {
-  uiText.setText(text);
-  scene.time.delayedCall(900, ()=> uiText.setText(''));
-}
-
-/* update status UI */
-function updateUI() {
+/* Simple leveling: trainer NPC offers to give XP — we implemented in dialogues earlier;
+   to keep things simple we add a "train" action on any NPC: when interacting the NPC text said "I'll help it level up" —
+   here we implement a quick train: find first creature in collection and award xp that may level up.
+*/
+function trainFirstCollectionMember() {
   const col = loadCollection();
-  uiText.setText(`Collection: ${col.length}  |  [A] Interact  [B] Menu`);
+  if (col.length === 0) { flashTemporary("No creatures to train."); return; }
+  const index = 0;
+  const creature = col[index];
+  const xpGain = Phaser.Math.Between(5, 15);
+  creature.xp = (creature.xp || 0) + xpGain;
+  // simple threshold: level * 10 xp to level up
+  if (creature.xp >= (creature.level * 10)) {
+    creature.xp = 0;
+    creature.level += 1;
+    flashTemporary(`${creature.species} leveled up to ${creature.level}!`);
+  } else {
+    flashTemporary(`${creature.species} gained ${xpGain} XP.`);
+  }
+  col[index] = creature;
+  saveCollection(col);
+  updateInfo();
 }
 
-/* Attach DOM-based touch controls to call grid movement and interaction */
+/* Attach DOM touch controls (D-pad and buttons) */
 function attachTouchControls(scene) {
-  // map DOM dpad areas to move attempts
   const dpad = document.getElementById('dpad');
-  dpad.addEventListener('touchstart', handleDpadTouch, { passive: true });
-  dpad.addEventListener('touchend', (e)=>{}, { passive: true });
-
+  dpad.addEventListener('touchstart', handleDpadTouch, { passive:true });
   function handleDpadTouch(e) {
     const t = e.touches[0];
-    const target = document.elementFromPoint(t.clientX, t.clientY);
-    if (!target) return;
-    const dir = target.getAttribute('data-dir');
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    if (!el) return;
+    const dir = el.getAttribute('data-dir');
     if (!dir) return;
-    if (dir === 'up') tryWalk(0,-1,scene);
-    if (dir === 'down') tryWalk(0,1,scene);
-    if (dir === 'left') tryWalk(-1,0,scene);
-    if (dir === 'right') tryWalk(1,0,scene);
+    if (dir === 'up') stepTo(0,-1);
+    if (dir === 'down') stepTo(0,1);
+    if (dir === 'left') stepTo(-1,0);
+    if (dir === 'right') stepTo(1,0);
   }
-
   // Buttons
-  const btnA = document.getElementById('btnA');
-  const btnB = document.getElementById('btnB');
-  btnA.addEventListener('touchstart', (e)=>{ e.preventDefault(); interact(scene); }, { passive: false });
-  btnB.addEventListener('touchstart', (e)=>{ e.preventDefault(); openCollection(scene); }, { passive: false });
+  document.getElementById('btnA').addEventListener('touchstart', (e)=>{ e.preventDefault(); interact(); }, { passive:false });
+  document.getElementById('btnB').addEventListener('touchstart', (e)=>{ e.preventDefault(); openMenu(); }, { passive:false });
 
-  // Keyboard fallback: also handle arrow keys and WASD for desktop testing
+  // Keyboard support
   window.addEventListener('keydown', (e)=>{
     if (inputLocked) return;
     if (player.moving) return;
-    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') tryWalk(0,-1,scene);
-    else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') tryWalk(0,1,scene);
-    else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') tryWalk(-1,0,scene);
-    else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') tryWalk(1,0,scene);
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key==='W') stepTo(0,-1);
+    else if (e.key === 'ArrowDown' || e.key === 's') stepTo(0,1);
+    else if (e.key === 'ArrowLeft' || e.key === 'a') stepTo(-1,0);
+    else if (e.key === 'ArrowRight' || e.key === 'd') stepTo(1,0);
   });
 }
 
-/* --- Main update loop (minimal) --- */
+/* Game update loop - nothing heavy required */
 function update(time, delta) {
-  // nothing continuous required for now
+  // Could implement weather or moving camera follow - camera follows player
+  if (gameScene && player) gameScene.cameras.main.centerOn(player.x, player.y);
 }
 
-/* --- Android / Packaging tips (not part of game code) ---
-  - To play on Android:
-    1) Host this single HTML file (and open it in Chrome/Edge on Android), or
-    2) Save locally and open it in a modern mobile browser, or
-    3) Wrap it in a WebView wrapper (Capacitor, Cordova) and build an Android APK.
-  - For a better install experience, add a small Web App Manifest and a service worker to make it a PWA ("Add to Home screen").
-  - Do NOT include or distribute copyrighted Pokémon ROMs, sprites, or trademarks if you plan to share this publicly.
-*/
-
-/* --- Legal / attribution note (important) ---
-   You asked for a "tribute game for the Pokémon blue version". This project is an original
-   fan-inspired tribute and DOES NOT contain any official Pokémon assets, names, or copyrighted
-   sprites from Nintendo/Game Freak/The Pokémon Company. If you want to add authentic assets or
-   the game's name, beware of copyright/trademark restrictions. Use original names, sprites,
-   or properly-licensed assets if you plan to publish.
-*/
-
 </script>
+
 </body>
 </html>
