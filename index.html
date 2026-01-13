@@ -1,1 +1,136 @@
-Color Tribute Monster Game body { margin: 0; background:#111; } canvas { display:block; margin:0 auto; } const TILE = 32; <p>const map = [ 'GGGGGGGGGGGGGG', 'G............G', 'G....WWW.....G', 'G....W.W.....G', 'G....WWW.....G', 'G............G', 'G....TTT.....G', 'G....T.T.....G', 'G....TTT.....G', 'G............G', 'GGGGGGGGGGGGGG' ];</p> <p>const colors = { G: 0x2ecc71, // grass W: 0x3498db, // water T: 0x27ae60, // trees '.': 0x7f8c8d // path };</p> <p>const config = { type: Phaser.AUTO, width: map[0].length * TILE, height: map.length * TILE, backgroundColor: '#000', scene: { preload, create, update } };</p> <p>const game = new Phaser.Game(config); let player, cursors;</p> <p>function preload() {}</p> <p>function create() { const graphics = this.add.graphics();</p> <p>for (let y = 0; y &lt; map.length; y++) { for (let x = 0; x &lt; map[y].length; x++) { const tile = map[y][x]; graphics.fillStyle(colors[tile], 1); graphics.fillRect(x * TILE, y * TILE, TILE, TILE); } }</p> <p>player = this.add.rectangle(2 * TILE + 16, 2 * TILE + 16, 20, 20, 0xe74c3c); this.physics.add.existing(player); player.body.setCollideWorldBounds(true);</p> <p>cursors = this.input.keyboard.createCursorKeys();</p> <p>this.add.text(8, 8, 'Arrow keys to move', { font: '14px monospace', fill: '#fff' }); }</p> <p>function update() { const speed = 120; player.body.setVelocity(0);</p> <p>if (cursors.left.isDown) player.body.setVelocityX(-speed); else if (cursors.right.isDown) player.body.setVelocityX(speed);</p> <p>if (cursors.up.isDown) player.body.setVelocityY(-speed); else if (cursors.down.isDown) player.body.setVelocityY(speed); }
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Color Tribute Monster Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+  <style>
+    body { margin: 0; background:#111; overflow: hidden; }
+    canvas { display:block; margin:0 auto; }
+    .button { position:absolute; width:60px; height:60px; background:#e74c3c; border-radius:50%; opacity:0.6; }
+    #up { top:80%; left:40%; }
+    #down { top:95%; left:40%; }
+    #left { top:88%; left:32%; }
+    #right { top:88%; left:48%; }
+    #action { top:88%; right:5%; width:70px; height:70px; background:#3498db; }
+  </style>
+</head>
+<body><div id="up" class="button"></div>
+<div id="down" class="button"></div>
+<div id="left" class="button"></div>
+<div id="right" class="button"></div>
+<div id="action" class="button"></div><script>
+const TILE = 32;
+
+const map = [
+  'GGGGGGGGGGGGGG',
+  'G............G',
+  'G....WWW.....G',
+  'G....W.W.....G',
+  'G....WWW.....G',
+  'G............G',
+  'G....TTT.....G',
+  'G....T.T.....G',
+  'G....TTT.....G',
+  'G............G',
+  'GGGGGGGGGGGGGG'
+];
+
+const colors = {
+  G: 0x2ecc71,
+  W: 0x3498db,
+  T: 0x27ae60,
+  '.': 0x7f8c8d
+};
+
+const config = {
+  type: Phaser.AUTO,
+  width: map[0].length * TILE,
+  height: map.length * TILE,
+  physics: { default: 'arcade' },
+  scene: { preload, create, update }
+};
+
+const game = new Phaser.Game(config);
+let player, cursors, creatures;
+let moveDirection = { x:0, y:0 };
+
+function preload() {
+  this.load.image('creature', 'https://i.imgur.com/6T5v0F2.png'); // example placeholder
+}
+
+function create() {
+  const graphics = this.add.graphics();
+
+  for (let y = 0; y < map.length; y++) {
+    for (let x = 0; x < map[y].length; x++) {
+      const tile = map[y][x];
+      graphics.fillStyle(colors[tile], 1);
+      graphics.fillRect(x * TILE, y * TILE, TILE, TILE);
+    }
+  }
+
+  player = this.add.rectangle(2 * TILE + 16, 2 * TILE + 16, 20, 20, 0xe74c3c);
+  this.physics.add.existing(player);
+  player.body.setCollideWorldBounds(true);
+
+  cursors = this.input.keyboard.createCursorKeys();
+
+  this.add.text(8, 8, 'Move: Arrows or D-Pad | Action: Blue button', { font: '14px monospace', fill: '#ffffff' });
+
+  // Add some creatures
+  creatures = this.physics.add.group();
+  const creature1 = this.add.sprite(8 * TILE + 16, 3 * TILE + 16, 'creature').setScale(0.5);
+  const creature2 = this.add.sprite(10 * TILE + 16, 7 * TILE + 16, 'creature').setScale(0.5);
+  creatures.add(creature1);
+  creatures.add(creature2);
+
+  // On-screen D-pad
+  document.getElementById('up').addEventListener('touchstart', e => moveDirection.y=-1);
+  document.getElementById('up').addEventListener('touchend', e => moveDirection.y=0);
+  document.getElementById('down').addEventListener('touchstart', e => moveDirection.y=1);
+  document.getElementById('down').addEventListener('touchend', e => moveDirection.y=0);
+  document.getElementById('left').addEventListener('touchstart', e => moveDirection.x=-1);
+  document.getElementById('left').addEventListener('touchend', e => moveDirection.x=0);
+  document.getElementById('right').addEventListener('touchstart', e => moveDirection.x=1);
+  document.getElementById('right').addEventListener('touchend', e => moveDirection.x=0);
+
+  document.getElementById('action').addEventListener('touchstart', () => {
+    creatures.children.iterate(c => {
+      if (Phaser.Math.Distance.Between(player.x, player.y, c.x, c.y) < 40) {
+        alert('You found a creature!');
+      }
+    });
+  });
+}
+
+function update() {
+  const speed = 120;
+  player.body.setVelocity(0);
+
+  // Keyboard
+  if (cursors.left.isDown) player.body.setVelocityX(-speed);
+  else if (cursors.right.isDown) player.body.setVelocityX(speed);
+
+  if (cursors.up.isDown) player.body.setVelocityY(-speed);
+  else if (cursors.down.isDown) player.body.setVelocityY(speed);
+
+  // Touch D-pad
+  player.body.setVelocityX(moveDirection.x * speed);
+  player.body.setVelocityY(moveDirection.y * speed);
+
+  // Touch anywhere to follow pointer (optional)
+  if (this.input.activePointer.isDown) {
+    const px = this.input.activePointer.x;
+    const py = this.input.activePointer.y;
+    const dx = px - player.x;
+    const dy = py - player.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      player.body.setVelocityX(Math.sign(dx) * speed);
+    } else {
+      player.body.setVelocityY(Math.sign(dy) * speed);
+    }
+  }
+}
+</script></body>
+</html>
