@@ -4,55 +4,149 @@
   <meta charset="utf-8" />
   <title>GBC-Style Tribute — Pat's Adventure</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
   <style>
-    html,body { height:100%; margin:0; background:#12121a; font-family: monospace; -webkit-tap-highlight-color: transparent; }
-    #game-wrapper { width: 320px; height: 288px; margin: 10px auto; image-rendering: pixelated; transform-origin:center top; }
-    canvas { image-rendering: pixelated !important; }
-    .dpad, .btnA, .btnB {
-      position: fixed; opacity: 0.88; touch-action: none; user-select:none; -webkit-user-select:none;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html,body { 
+      height: 100%; 
+      width: 100%;
+      margin: 0; 
+      background: #12121a; 
+      font-family: monospace; 
+      -webkit-tap-highlight-color: transparent;
+      overflow: hidden;
+      position: fixed;
     }
-    .dpad { left: 4vw; bottom: 12vw; width: 20vw; height: 20vw; }
-    .btnA { right: 6vw; bottom: 12vw; width: 16vw; height: 16vw; border-radius:50%; background:#2f7bd9; }
-    .btnB { right: 22vw; bottom: 20vw; width: 10vw; height: 10vw; border-radius:50%; background:#d14a4a; }
-    .dpad .dir { position:absolute; background:#999; border-radius:10%; opacity:0.75; }
-    .dpad .up { left:34%; top:0; width:32%; height:30%; } 
-    .dpad .down { left:34%; bottom:0; width:32%; height:30%; }
-    .dpad .left { left:0; top:34%; width:30%; height:32%; } 
-    .dpad .right { right:0; top:34%; width:30%; height:32%; }
-    #hint { color:#dfe6e9; text-align:center; margin-top:4px; font-size:12px; }
-    .small { font-size:11px; color:#cfe8ff; text-align:center; margin-bottom:2px; }
+    #game-wrapper { 
+      width: 320px; 
+      height: 288px; 
+      margin: 10px auto; 
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      -ms-interpolation-mode: nearest-neighbor;
+    }
+    canvas { 
+      image-rendering: pixelated !important;
+      image-rendering: crisp-edges !important;
+      -ms-interpolation-mode: nearest-neighbor !important;
+    }
+    .dpad, .btnA, .btnB {
+      position: fixed; 
+      opacity: 0.7; 
+      touch-action: none; 
+      user-select: none; 
+      -webkit-user-select: none;
+      z-index: 1000;
+      pointer-events: auto;
+    }
+    .dpad { 
+      left: 20px; 
+      bottom: 80px; 
+      width: 120px; 
+      height: 120px; 
+      position: relative;
+    }
+    .btnA { 
+      right: 20px; 
+      bottom: 80px; 
+      width: 60px; 
+      height: 60px; 
+      border-radius: 50%; 
+      background: #2f7bd9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+    }
+    .btnB { 
+      right: 100px; 
+      bottom: 120px; 
+      width: 50px; 
+      height: 50px; 
+      border-radius: 50%; 
+      background: #d14a4a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+    }
+    .dpad .dir { 
+      position: absolute; 
+      background: #999; 
+      border-radius: 10%; 
+      opacity: 0.85;
+      pointer-events: auto;
+    }
+    .dpad .up { left: 40px; top: 0; width: 40px; height: 35px; } 
+    .dpad .down { left: 40px; bottom: 0; width: 40px; height: 35px; }
+    .dpad .left { left: 0; top: 40px; width: 35px; height: 40px; } 
+    .dpad .right { right: 0; top: 40px; width: 35px; height: 40px; }
+    #hint { 
+      color: #dfe6e9; 
+      text-align: center; 
+      margin-top: 4px; 
+      font-size: 11px;
+      padding: 0 10px;
+    }
+    .small { 
+      font-size: 10px; 
+      color: #cfe8ff; 
+      text-align: center; 
+      margin-bottom: 2px;
+    }
   </style>
 </head>
 <body>
   <div id="game-wrapper"></div>
-  <div class="small">Player: Pat  —  Tribute (fan-made, original assets)</div>
-  <div id="hint">D-Pad or arrows — [A] Interact / [B] Menu — Tap A on creatures to catch</div>
+  <div class="small">Player: Pat — Tribute (fan-made, original assets)</div>
+  <div id="hint">Use controls to move — [A] Interact / [B] Menu</div>
 
-  <div class="dpad" id="dpad" aria-hidden="true">
-    <div class="dir up" data-dir="up"></div>
-    <div class="dir down" data-dir="down"></div>
-    <div class="dir left" data-dir="left"></div>
-    <div class="dir right" data-dir="right"></div>
+  <div class="dpad" id="dpad">
+    <div class="dir up" id="up"></div>
+    <div class="dir down" id="down"></div>
+    <div class="dir left" id="left"></div>
+    <div class="dir right" id="right"></div>
   </div>
-  <div class="btnA" id="btnA" aria-hidden="true"></div>
-  <div class="btnB" id="btnB" aria-hidden="true"></div>
+  <div class="btnA" id="btnA">A</div>
+  <div class="btnB" id="btnB">B</div>
 
 <script>
 const TILE = 16;
 const SCREEN_W = 160 * 2;
 const SCREEN_H = 144 * 2;
 const config = { 
-  type: Phaser.CANVAS, 
+  type: Phaser.AUTO,
   parent: 'game-wrapper', 
   width: SCREEN_W, 
   height: SCREEN_H, 
   backgroundColor: 0x88c0ff, 
-  pixelArt: true, 
+  pixelArt: true,
+  roundPixels: true,
+  antialias: false,
   physics: { default: 'arcade' }, 
-  scene: { preload, create, update } 
+  scene: { preload, create, update },
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  }
 };
-const game = new Phaser.Game(config);
+
+let game;
+let gameScene;
+let player, cursors;
+let creatures = [];
+let npcs = [];
+let items = [];
+let currentMapKey = 'overworld';
+let currentMapData;
+let playerPosBeforeEnter = null;
+let inputLocked = false;
+let renderTexture;
+
+const collectionData = [];
+const inventoryData = { stones: [] };
 
 const maps = {
   overworld: [
@@ -67,7 +161,7 @@ const maps = {
     'T.......g....g..C..T',
     'T..S........g......T',
     'T......BBBBBBBB....T',
-    'TTTTTTTTDDDDTTTTTTT'
+    'TTTTTTTDDDDDTTTTTTT'
   ],
   house_small: [
     'BBBBBBBBBBBB',
@@ -80,28 +174,9 @@ const maps = {
 };
 
 const palette = {
-  B: 0x304352,
-  '.': 0xcff0d6,
-  g: 0x77bb6d,
-  W: 0x3f8fe2,
-  T: 0x2c5b2e,
-  D: 0xffd27f,
-  N: 0xcfe3ff,
-  C: 0xefd275,
-  S: 0xffb7c5
+  B: 0x304352, '.': 0xcff0d6, g: 0x77bb6d, W: 0x3f8fe2,
+  T: 0x2c5b2e, D: 0xffd27f, N: 0xcfe3ff, C: 0xefd275, S: 0xffb7c5
 };
-
-let currentMapKey = 'overworld';
-let currentMapData = maps.overworld;
-let player, cursors, gameScene;
-let creatures = [];
-let npcs = [];
-let items = [];
-let playerPosBeforeEnter = null;
-let inputLocked = false;
-
-const collectionData = [];
-const inventoryData = { stones: [] };
 
 function makePixelTexture(scene, key, pixels, scale=2) {
   const sizeY = pixels.length, sizeX = pixels[0].length;
@@ -125,7 +200,7 @@ function createSprites(scene) {
     [null,null,'#77a6d9','#77a6d9','#77a6d9',null],
     [null,null,null,'#f1c27d','#f1c27d',null],
     [null,null,'#e04a4a',null,null,'#e04a4a'],
-    [null,'#e04a4a',null,null,null,'#e04a4a'],
+    [null,'#e04a4a',null,null,null,'#e04a4a']
   ], 2);
 
   makePixelTexture(scene, 'crea_base', [
@@ -140,37 +215,15 @@ function createSprites(scene) {
     ['#f0d2a4','#8a5d3a','#8a5d3a','#8a5d3a','#f0d2a4'],
     [null,'#8a5d3a','#fff0d6','#8a5d3a',null],
     [null,null,'#fff0d6',null,null]
-  ],3);
-
-  makePixelTexture(scene, 'hakim_fire', [
-    [null,'#ffd29f','#ffd29f','#ffd29f',null],
-    ['#ffd29f','#bf5a2a','#bf5a2a','#bf5a2a','#ffd29f'],
-    [null,'#bf5a2a','#fff2d9','#bf5a2a',null],
-    [null,null,'#fff2d9',null,null]
-  ],3);
-  
-  makePixelTexture(scene, 'hakim_water', [
-    [null,'#cfe6ff','#cfe6ff','#cfe6ff',null],
-    ['#cfe6ff','#2b6fbf','#2b6fbf','#2b6fbf','#cfe6ff'],
-    [null,'#2b6fbf','#eaf7ff','#2b6fbf',null],
-    [null,null,'#eaf7ff',null,null]
-  ],3);
-  
-  makePixelTexture(scene, 'hakim_volt', [
-    [null,'#fff3a0','#fff3a0','#fff3a0',null],
-    ['#fff3a0','#bda81c','#bda81c','#bda81c','#fff3a0'],
-    [null,'#bda81c','#fff8c9','#bda81c',null],
-    [null,null,'#fff8c9',null,null]
-  ],3);
+  ], 3);
 
   makePixelTexture(scene, 'npc', [
     [null,'#ffd7b0','#ffd7b0',null],
     ['#ffd7b0','#6c4f3a','#6c4f3a','#ffd7b0'],
     [null,null,'#ffd7b0',null]
-  ],3);
+  ], 3);
 }
 
-let renderTexture;
 function drawMap(scene, mapKey) {
   currentMapKey = mapKey;
   currentMapData = maps[mapKey];
@@ -294,7 +347,7 @@ function spawnNPC(scene, gx, gy) {
   const dialogs = [
     ["Yo Pat! The Wi-Fi here is terrible, but the vibes are good."],
     ["Have you tried the new ramen truck? 10/10 would recommend."],
-    ["I do data science. My hobby is training tiny beasts. Bring one around and I'll help it level up!"]
+    ["I do data science. My hobby is training tiny beasts!"]
   ];
   
   const giveStone = Math.random() < 0.4;
@@ -320,6 +373,15 @@ function tileCenter(gx,gy) {
   return { x: gx*TILE + TILE/2, y: gy*TILE + TILE/2 }; 
 }
 
+function findFirstWalkableTile(mapData) {
+  for (let y=0;y<mapData.length;y++) {
+    for (let x=0;x<mapData[0].length;x++) {
+      if (['.','g','D','C','S','N'].includes(mapData[y][x])) return {x,y};
+    }
+  }
+  return {x:1,y:1};
+}
+
 function preload() {}
 
 function create() {
@@ -337,31 +399,54 @@ function create() {
 
   cursors = this.input.keyboard.createCursorKeys();
   this.input.keyboard.addKeys('W,A,S,D');
-  this.input.keyboard.on('keydown-Z', ()=>interact());
-  this.input.keyboard.on('keydown-SPACE', ()=>interact());
-  this.input.keyboard.on('keydown-X', ()=>openMenu());
-  
-  attachTouchControls(this);
 
   this.info = this.add.text(6, SCREEN_H - 28, '', { 
     font: '10px monospace', 
     fill: '#061a2a', 
     backgroundColor:'#cff0ff' 
   }).setDepth(20).setScrollFactor(0);
+  
   updateInfo();
+  setupControls();
 }
 
-function findFirstWalkableTile(mapData) {
-  for (let y=0;y<mapData.length;y++) {
-    for (let x=0;x<mapData[0].length;x++) {
-      if (isWalkableChar(mapData[y][x])) return {x,y};
+function setupControls() {
+  let touchHandlers = [];
+  
+  const createTouchHandler = (elementId, callback) => {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    
+    const handler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      callback();
+    };
+    
+    el.addEventListener('touchstart', handler, { passive: false });
+    el.addEventListener('click', handler);
+    touchHandlers.push({ el, handler });
+  };
+
+  createTouchHandler('up', () => stepTo(0, -1));
+  createTouchHandler('down', () => stepTo(0, 1));
+  createTouchHandler('left', () => stepTo(-1, 0));
+  createTouchHandler('right', () => stepTo(1, 0));
+  createTouchHandler('btnA', () => interact());
+  createTouchHandler('btnB', () => openMenu());
+
+  window.addEventListener('keydown', (e) => {
+    if (inputLocked || player.moving) return;
+    
+    switch(e.key.toLowerCase()) {
+      case 'arrowup': case 'w': stepTo(0,-1); break;
+      case 'arrowdown': case 's': stepTo(0,1); break;
+      case 'arrowleft': case 'a': stepTo(-1,0); break;
+      case 'arrowright': case 'd': stepTo(1,0); break;
+      case 'z': case ' ': interact(); break;
+      case 'x': openMenu(); break;
     }
-  }
-  return {x:1,y:1};
-}
-
-function isWalkableChar(ch) { 
-  return ['.','g','D','C','S','N'].includes(ch); 
+  });
 }
 
 function stepTo(dx,dy) {
@@ -406,9 +491,8 @@ function onEnterTile(gx,gy) {
     } else {
       const prev = playerPosBeforeEnter || { mapKey:'overworld', x:3, y:6 };
       drawMap(gameScene, prev.mapKey);
-      const outX = Math.max(1, prev.x);
-      player.gridX = outX; 
-      player.gridY = prev.y;
+      player.gridX = prev.x; 
+      player.gridY = prev.y + 1;
       const dest = tileCenter(player.gridX, player.gridY);
       player.x = dest.x; 
       player.y = dest.y;
@@ -452,25 +536,26 @@ function interact() {
     }
   }
   
-  flashTemporary("Nothing to interact with.");
+  flashTemporary("Nothing nearby.");
 }
 
 function startEncounter(creatureObj, index) {
   inputLocked = true;
   const spr = creatureObj.sprite;
   
-  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.6).setOrigin(0).setDepth(50);
-  const panel = gameScene.add.rectangle(8, SCREEN_H-60, SCREEN_W-16, 56, 0xf8f8f8, 1).setOrigin(0).setDepth(51);
+  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.6).setOrigin(0).setDepth(50).setScrollFactor(0);
+  const panel = gameScene.add.rectangle(8, SCREEN_H-60, SCREEN_W-16, 56, 0xf8f8f8, 1).setOrigin(0).setDepth(51).setScrollFactor(0);
   const title = gameScene.add.text(12, SCREEN_H-56, `${spr.species} Lv ${spr.level}`, { 
     font:'10px monospace', 
     fill:'#000' 
-  }).setDepth(52);
+  }).setDepth(52).setScrollFactor(0);
   const info = gameScene.add.text(12, SCREEN_H-40, "Throw Ball [A]  Run [B]", { 
     font:'9px monospace', 
     fill:'#000' 
-  }).setDepth(52);
+  }).setDepth(52).setScrollFactor(0);
 
   let cleanupDone = false;
+  let handlers = [];
   
   function cleanup() {
     if (cleanupDone) return;
@@ -479,18 +564,19 @@ function startEncounter(creatureObj, index) {
     panel.destroy(); 
     title.destroy(); 
     info.destroy();
+    handlers.forEach(h => h.el.removeEventListener(h.type, h.fn));
+    handlers = [];
     inputLocked = false;
-    window.removeEventListener('keydown', onKey);
-    document.getElementById('btnA').removeEventListener('touchstart', onTouchA);
-    document.getElementById('btnB').removeEventListener('touchstart', onTouchB);
   }
   
   function attemptCapture() {
+    if (cleanupDone) return;
     const base = spr.species === 'Hakim Jefrees' ? 0.45 : 0.5;
     const levelFactor = Math.max(0, (8 - spr.level) * 0.04);
     const chance = Phaser.Math.Clamp(base + levelFactor - Math.random()*0.15, 0.05, 0.95);
     info.setText("You throw a ball...");
     gameScene.time.delayedCall(700, ()=>{
+      if (cleanupDone) return;
       if (Math.random() < chance) {
         info.setText(`${spr.species} was captured!`);
         const entry = { 
@@ -511,59 +597,59 @@ function startEncounter(creatureObj, index) {
         });
       } else {
         info.setText("It broke free!");
-        gameScene.time.delayedCall(700, ()=> cleanup());
+        gameScene.time.delayedCall(700, cleanup);
       }
     });
   }
 
-  function onKey(e){ 
-    if (!inputLocked) return; 
-    if (e.key==='z' || e.key==='Z' || e.key===' '){ 
-      attemptCapture(); 
-    } else if (e.key==='x' || e.key==='X'){ 
-      info.setText("You ran away!"); 
-      gameScene.time.delayedCall(300, cleanup); 
-    } 
-  }
-  
-  function onTouchA(e) {
-    e.preventDefault();
-    attemptCapture();
-  }
-  
-  function onTouchB(e) {
-    e.preventDefault();
-    info.setText("You ran away!"); 
+  function onRun() {
+    if (cleanupDone) return;
+    info.setText("You ran away!");
     gameScene.time.delayedCall(300, cleanup);
   }
+
+  const addHandler = (id, type, fn) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener(type, fn, { passive: false });
+      handlers.push({ el, type, fn });
+    }
+  };
+
+  const captureHandler = (e) => { e.preventDefault(); attemptCapture(); };
+  const runHandler = (e) => { e.preventDefault(); onRun(); };
   
-  window.addEventListener('keydown', onKey);
-  document.getElementById('btnA').addEventListener('touchstart', onTouchA);
-  document.getElementById('btnB').addEventListener('touchstart', onTouchB);
+  addHandler('btnA', 'touchstart', captureHandler);
+  addHandler('btnA', 'click', captureHandler);
+  addHandler('btnB', 'touchstart', runHandler);
+  addHandler('btnB', 'click', runHandler);
 }
 
 function talkToNPC(npc) {
   inputLocked = true;
   const dialogLines = Phaser.Utils.Array.Shuffle([...npc.dialogs])[0];
   let idx = 0;
-  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.55).setOrigin(0).setDepth(60);
-  const panel = gameScene.add.rectangle(8, SCREEN_H-70, SCREEN_W-16, 66, 0xfafafa, 1).setOrigin(0).setDepth(61);
+  
+  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.55).setOrigin(0).setDepth(60).setScrollFactor(0);
+  const panel = gameScene.add.rectangle(8, SCREEN_H-70, SCREEN_W-16, 66, 0xfafafa, 1).setOrigin(0).setDepth(61).setScrollFactor(0);
   const nameTxt = gameScene.add.text(12, SCREEN_H-66, `NPC`, {
     font:'10px monospace', 
     fill:'#000'
-  }).setDepth(62);
+  }).setDepth(62).setScrollFactor(0);
   const body = gameScene.add.text(12, SCREEN_H-52, dialogLines[idx] || "Hey.", {
     font:'9px monospace', 
     fill:'#000'
-  }).setDepth(62);
-  const hint = gameScene.add.text(SCREEN_W-70, SCREEN_H-34, "[A] Next  [B] Close", {
+  }).setDepth(62).setScrollFactor(0);
+  const hint = gameScene.add.text(SCREEN_W-70, SCREEN_H-34, "[A] Next", {
     font:'9px monospace', 
     fill:'#333'
-  }).setDepth(62);
+  }).setDepth(62).setScrollFactor(0);
 
   let cleanupDone = false;
+  let handlers = [];
 
   function advance() {
+    if (cleanupDone) return;
     idx++;
     if (idx < dialogLines.length) { 
       body.setText(dialogLines[idx]); 
@@ -573,12 +659,13 @@ function talkToNPC(npc) {
   }
   
   function finish() {
+    if (cleanupDone) return;
     if (npc.giveStone && !npc.given) {
       const stone = npc.stoneType;
       inventoryData.stones.push(stone);
       npc.given = true;
-      body.setText(`Oh hey, take this ${stone} stone. Use it on a Hakim Jefrees!`);
-      gameScene.time.delayedCall(800, ()=>{ 
+      body.setText(`Take this ${stone} stone!`);
+      gameScene.time.delayedCall(1200, ()=>{ 
         close(); 
         updateInfo(); 
       });
@@ -595,62 +682,156 @@ function talkToNPC(npc) {
     nameTxt.destroy(); 
     body.destroy(); 
     hint.destroy(); 
-    inputLocked=false; 
-    window.removeEventListener('keydown', onKey);
-    document.getElementById('btnA').removeEventListener('touchstart', onTouchA);
-    document.getElementById('btnB').removeEventListener('touchstart', onTouchB);
+    handlers.forEach(h => h.el.removeEventListener(h.type, h.fn));
+    handlers = [];
+    inputLocked = false;
   }
 
-  function onKey(e){ 
-    if (!inputLocked) return; 
-    if (e.key==='z' || e.key==='Z' || e.key===' '){ 
-      advance(); 
-    } else if (e.key==='x' || e.key==='X'){ 
-      close(); 
-    } 
-  }
+  const addHandler = (id, type, fn) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener(type, fn, { passive: false });
+      handlers.push({ el, type, fn });
+    }
+  };
+
+  const advanceHandler = (e) => { e.preventDefault(); advance(); };
   
-  function onTouchA(e) {
-    e.preventDefault();
-    advance();
-  }
-  
-  function onTouchB(e) {
-    e.preventDefault();
-    close();
-  }
-  
-  window.addEventListener('keydown', onKey);
-  document.getElementById('btnA').addEventListener('touchstart', onTouchA);
-  document.getElementById('btnB').addEventListener('touchstart', onTouchB);
+  addHandler('btnA', 'touchstart', advanceHandler);
+  addHandler('btnA', 'click', advanceHandler);
+  addHandler('btnB', 'touchstart', advanceHandler);
+  addHandler('btnB', 'click', advanceHandler);
 }
 
 function flashTemporary(txt) {
-  if (!gameScene) return;
+  if (!gameScene || !gameScene.info) return;
   gameScene.info.setText(txt);
-  gameScene.time.delayedCall(1100, ()=>{ 
-    if (gameScene && gameScene.info) updateInfo(); 
-  });
+  gameScene.time.delayedCall(1100, updateInfo);
 }
 
 function updateInfo() {
+  if (!gameScene || !gameScene.info) return;
   const stones = inventoryData.stones.length;
   const col = collectionData.length;
-  if (gameScene && gameScene.info) {
-    gameScene.info.setText(`Pat  •  Collected: ${col}  •  Stones: ${stones}`);
-  }
+  gameScene.info.setText(`Pat  •  Collected: ${col}  •  Stones: ${stones}`);
 }
 
 function openMenu() {
+  if (inputLocked) return;
   inputLocked = true;
-  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.7).setOrigin(0).setDepth(80);
-  const panel = gameScene.add.rectangle(6,6, SCREEN_W-12, SCREEN_H-12, 0xfdfdfd, 1).setOrigin(0).setDepth(81);
+  
+  const overlay = gameScene.add.rectangle(0,0, SCREEN_W, SCREEN_H, 0x000000, 0.7).setOrigin(0).setDepth(80).setScrollFactor(0);
+  const panel = gameScene.add.rectangle(6,6, SCREEN_W-12, SCREEN_H-12, 0xfdfdfd, 1).setOrigin(0).setDepth(81).setScrollFactor(0);
   const title = gameScene.add.text(12,10, "PAT'S MENU", {
     font:'11px monospace', 
     fill:'#000'
-  }).setDepth(82);
+  }).setDepth(82).setScrollFactor(0);
   
   const listItems = [];
   for (let i=0;i<Math.min(8,collectionData.length);i++){
     const it = collectionData[i];
-    const txt = gameScene.add.
+    const txt = gameScene.add.text(12, 30 + i*14, `${i+1}. ${it.species} Lv ${it.level} ${it.element ? '['+it.element+']' : ''}`, {
+      font:'10px monospace', 
+      fill:'#000'
+    }).setDepth(82).setScrollFactor(0);
+    txt.setInteractive();
+    txt.on('pointerdown', ()=>{ attemptUseStoneOn(i); });
+    listItems.push(txt);
+  }
+  
+  if (collectionData.length === 0) {
+    const emptyTxt = gameScene.add.text(12, 30, "No creatures yet. Catch some!", {
+      font:'10px monospace', 
+      fill:'#000'
+    }).setDepth(82).setScrollFactor(0);
+    listItems.push(emptyTxt);
+  }
+
+  const stonesTxt = gameScene.add.text(12, SCREEN_H-56, `Stones: ${inventoryData.stones.join(', ') || 'None'}`, {
+    font:'10px monospace', 
+    fill:'#000'
+  }).setDepth(82).setScrollFactor(0);
+  listItems.push(stonesTxt);
+  
+  const closeHint = gameScene.add.text(SCREEN_W-88, SCREEN_H-28, "[A/B] Close", {
+    font:'10px monospace', 
+    fill:'#333'
+  }).setDepth(82).setScrollFactor(0);
+  listItems.push(closeHint);
+
+  let cleanupDone = false;
+  let handlers = [];
+
+  function close() { 
+    if (cleanupDone) return;
+    cleanupDone = true;
+    overlay.destroy(); 
+    panel.destroy(); 
+    title.destroy(); 
+    listItems.forEach(item => item.destroy());
+    handlers.forEach(h => h.el.removeEventListener(h.type, h.fn));
+    handlers = [];
+    inputLocked = false; 
+    updateInfo();
+  }
+  
+  const addHandler = (id, type, fn) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener(type, fn, { passive: false });
+      handlers.push({ el, type, fn });
+    }
+  };
+
+  const closeHandler = (e) => { e.preventDefault(); close(); };
+  
+  addHandler('btnA', 'touchstart', closeHandler);
+  addHandler('btnA', 'click', closeHandler);
+  addHandler('btnB', 'touchstart', closeHandler);
+  addHandler('btnB', 'click', closeHandler);
+
+  function attemptUseStoneOn(index) {
+    if (cleanupDone) return;
+    if (index < 0 || index >= collectionData.length) { 
+      flashTemporary("Invalid selection."); 
+      return; 
+    }
+    const chosen = collectionData[index];
+    if (chosen.species !== 'Hakim Jefrees') { 
+      flashTemporary("Only Hakim Jefrees can use stones."); 
+      return; 
+    }
+    if (inventoryData.stones.length === 0) { 
+      flashTemporary("No stones available."); 
+      return; 
+    }
+    
+    const stone = inventoryData.stones.shift();
+    chosen.element = stone;
+    collectionData[index] = chosen;
+    
+    const promptOverlay = gameScene.add.rectangle(18, SCREEN_H/2 - 26, SCREEN_W-36, 52, 0xffffff, 1).setDepth(90).setScrollFactor(0);
+    const promptText = gameScene.add.text(22, SCREEN_H/2 - 18, `${chosen.species} is infused with ${stone} energy!`, {
+      font:'9px monospace', 
+      fill:'#000'
+    }).setDepth(91).setScrollFactor(0);
+    
+    gameScene.time.delayedCall(1200, ()=>{ 
+      promptOverlay.destroy(); 
+      promptText.destroy(); 
+      updateInfo(); 
+      close();
+    });
+  }
+}
+
+function update(time, delta) {
+  if (gameScene && player && !inputLocked) {
+    gameScene.cameras.main.centerOn(player.x, player.y);
+  }
+}
+
+// Start the game when DOM is ready
+window.addEventListener('load', () => {
+  game = new Phaser.Game(config);
+});
